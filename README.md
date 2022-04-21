@@ -1,6 +1,6 @@
-# template
+# Config Checker
 
-Config Checker Infrastructure Deployment:
+Infrastructure Deployment:
 Template can be used to create the infrastructure for this solution. It will deploy lambda, lambda Iam Role and  event rule.
 
 Once the infra is deployed, 
