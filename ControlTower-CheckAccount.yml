@@ -1,5 +1,12 @@
 ---
 AWSTemplateFormatVersion: '2010-09-09'
+Parameters:
+  S3Bucket:
+    Type: String
+    Default: 'config-bucket-795460379043'
+  S3Key:
+    Type: String
+    Default: 'ControlTower-CheckAccountt.zip'
 Resources:
   ControlTower:
     Type: AWS::Lambda::Function
@@ -8,8 +15,8 @@ Resources:
       Handler: lambda_function.lambda_handler
       Role: !GetAtt LambdaFunctionRole.Arn
       Code:
-        S3Bucket: config-bucket-795460379043
-        S3Key: ControlTower-CheckAccountt.zip
+        S3Bucket: !Ref s3Bucket
+        S3Key: !Ref S3Key
       Runtime: python3.7
       Timeout: 300
       Environment:
