@@ -12,6 +12,12 @@ Resources:
         S3Key: ControlTower-CheckAccountt.zip
       Runtime: python3.7
       Timeout: 300
+      Environment:
+        Variables:
+          ORGANIZATION_UNIT: ou-fdn3-fojm4ymw
+          PRODUCT_ID: prod-ty6lfomucdmmq
+          PROVISIONING_ARTIFACT_ID: pa-7ygfkfcb7fcv4
+          SOURCE_ORGANIZATION_UNIT: r-fdn3
   LambdaFunctionRole:
     Type: AWS::IAM::Role
     Properties:
