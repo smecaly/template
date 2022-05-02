@@ -17,7 +17,7 @@ Resources:
       Code:
         S3Bucket: !Ref S3Bucket
         S3Key: !Ref S3Key
-      Runtime: python3.7
+      Runtime: python3.9
       Timeout: 300
       Environment:
         Variables:
