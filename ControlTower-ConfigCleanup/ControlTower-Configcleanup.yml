@@ -1,0 +1,102 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Parameters:
+  S3Bucket:
+    Type: String
+    Description: Enter the name of the S3 bucket with the lambda code
+    
+
+  S3Key:
+    Type: String
+    Description: Enter the key of the S3 bucket with the lambda code 
+    
+
+  OrganizationUnit:
+    Type: String
+    Description: Enter the ID of the organization unit you want to use for this account
+    
+
+  ProductID:
+    Type: String
+    Description: Enter the ID of the service catalog product for account factory
+    
+
+  ProvisioningArtifactID:
+    Type: String
+    Description: Enter the provisioning artifact ID from service catalog. This is the service catalog product version.
+   
+
+  SourceOrganizationUnit:
+    Type: String
+    Description: ID of the root organization unit
+    
+  
+Resources:
+  ControlTower:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: ControlTower-ConfigChecker
+      Handler: lambda_function.lambda_handler
+      Role: !GetAtt LambdaFunctionRole.Arn
+      Code:
+        S3Bucket: !Ref S3Bucket
+        S3Key: !Ref S3Key
+      Runtime: python3.7
+      Timeout: 300
+      Environment:
+        Variables:
+          ORGANIZATION_UNIT: !Ref OrganizationUnit
+          PRODUCT_ID: !Ref ProductID
+          PROVISIONING_ARTIFACT_ID: !Ref ProvisioningArtifactID
+          SOURCE_ORGANIZATION_UNIT: !Ref SourceOrganizationUnit
+  LambdaFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+              - lambda.amazonaws.com
+          Action:
+            - sts:AssumeRole
+      Path: "/"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/AdministratorAccess"
+      Policies:
+      - PolicyName: STSlambda
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action: 
+              - sts:*
+            Resource: '*'
+
+  EventRule: 
+    Type: AWS::Events::Rule
+    Properties: 
+      Description: "EventRule"
+      EventPattern: 
+        source: 
+          - "aws.organizations"
+        detail-type: 
+          - "AWS API Call via CloudTrail"
+        detail: 
+          eventSource: 
+            - "organizations.amazonaws.com"
+          eventName:
+            - "AcceptHandshake"
+      State: "ENABLED"
+      Targets: 
+        - Arn: !GetAtt ControlTower.Arn
+          Id: TargetFunctionV1
+  PermissionForEventsToInvokeLambda: 
+    Type: AWS::Lambda::Permission
+    Properties: 
+      FunctionName: 
+        Ref: ControlTower
+      Action: "lambda:InvokeFunction"
+      Principal: "events.amazonaws.com"
+      SourceArn: !GetAtt EventRule.Arn
