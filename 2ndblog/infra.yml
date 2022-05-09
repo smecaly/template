@@ -34,6 +34,7 @@ Resources:
       Path: "/"
       ManagedPolicyArns:
         - "arn:aws:iam::aws:policy/AdministratorAccess"
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
       Policies:
       - PolicyName: STSlambda
         PolicyDocument:
@@ -41,7 +42,16 @@ Resources:
           Statement:
           - Effect: Allow
             Action: 
-              - sts:*
+              - config:DeleteDeliveryChannel
+              - "config:DescribeConfigurationRecorders"
+              - "config:DescribeDeliveryChannels"
+              - "config:DeleteConfigurationRecorder"
+            Resource: '*'
+          - Effect: Allow
+            Action: 
+              - organizations:DescribeAccount
+              - organizations:MoveAccount
+              - servicecatalog:ProvisionProduct
             Resource: '*'
 
   EventRule: 
