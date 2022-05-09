@@ -1,41 +1,16 @@
----
-AWSTemplateFormatVersion: '2010-09-09'
+AWSTemplateFormatVersion: 2010-09-09
 Parameters:
   S3Bucket:
     Type: String
-    Description: Enter the name of the S3 bucket with the lambda code
-    
-
+    Default: ''
   S3Key:
     Type: String
-    Description: Enter the key of the S3 bucket with the lambda code 
-    
-
-  OrganizationUnit:
-    Type: String
-    Description: Enter the ID of the organization unit you want to use for this account
-    
-
-  ProductID:
-    Type: String
-    Description: Enter the ID of the service catalog product for account factory
-    
-
-  ProvisioningArtifactID:
-    Type: String
-    Description: Enter the provisioning artifact ID from service catalog. This is the service catalog product version.
-   
-
-  SourceOrganizationUnit:
-    Type: String
-    Description: ID of the root organization unit
-    
-  
+    Default: ''
 Resources:
-  ControlTower:
+  TagInstance:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: ControlTower-ConfigChecker
+      FunctionName: TagInstanceOwner
       Handler: lambda_function.lambda_handler
       Role: !GetAtt LambdaFunctionRole.Arn
       Code:
@@ -43,12 +18,6 @@ Resources:
         S3Key: !Ref S3Key
       Runtime: python3.7
       Timeout: 300
-      Environment:
-        Variables:
-          ORGANIZATION_UNIT: !Ref OrganizationUnit
-          PRODUCT_ID: !Ref ProductID
-          PROVISIONING_ARTIFACT_ID: !Ref ProvisioningArtifactID
-          SOURCE_ORGANIZATION_UNIT: !Ref SourceOrganizationUnit
   LambdaFunctionRole:
     Type: AWS::IAM::Role
     Properties:
@@ -63,15 +32,24 @@ Resources:
             - sts:AssumeRole
       Path: "/"
       ManagedPolicyArns:
-        - "arn:aws:iam::aws:policy/AdministratorAccess"
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
       Policies:
-      - PolicyName: STSlambda
+      - PolicyName: lambdaPolicy
         PolicyDocument:
           Version: '2012-10-17'
           Statement:
           - Effect: Allow
             Action: 
-              - sts:*
+              - config:DeleteDeliveryChannel
+              - "config:DescribeConfigurationRecorders"
+              - "config:DescribeDeliveryChannels"
+              - "config:DeleteConfigurationRecorder"
+            Resource: '*'
+          - Effect: Allow
+            Action: 
+              - organizations:DescribeAccount
+              - organizations:MoveAccount
+              - servicecatalog:ProvisionProduct
             Resource: '*'
 
   EventRule: 
@@ -80,23 +58,21 @@ Resources:
       Description: "EventRule"
       EventPattern: 
         source: 
-          - "aws.organizations"
+          - "aws.ec2"
         detail-type: 
           - "AWS API Call via CloudTrail"
         detail: 
-          eventSource: 
-            - "organizations.amazonaws.com"
           eventName:
-            - "AcceptHandshake"
+            - "RunInstances"
       State: "ENABLED"
       Targets: 
-        - Arn: !GetAtt ControlTower.Arn
+        - Arn: !GetAtt TagInstance.Arn
           Id: TargetFunctionV1
   PermissionForEventsToInvokeLambda: 
     Type: AWS::Lambda::Permission
     Properties: 
       FunctionName: 
-        Ref: ControlTower
+        Ref: TagInstance
       Action: "lambda:InvokeFunction"
       Principal: "events.amazonaws.com"
       SourceArn: !GetAtt EventRule.Arn
