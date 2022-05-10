@@ -1,16 +1,41 @@
-AWSTemplateFormatVersion: 2010-09-09
+---
+AWSTemplateFormatVersion: '2010-09-09'
 Parameters:
   S3Bucket:
     Type: String
-    Default: ''
+    Description: Enter the name of the S3 bucket with the lambda code
+    
+
   S3Key:
     Type: String
-    Default: ''
+    Description: Enter the key of the S3 bucket with the lambda code 
+    
+
+  OrganizationUnit:
+    Type: String
+    Description: Enter the ID of the organization unit you want to use for this account
+    
+
+  ProductID:
+    Type: String
+    Description: Enter the ID of the service catalog product for account factory
+    
+
+  ProvisioningArtifactID:
+    Type: String
+    Description: Enter the provisioning artifact ID from service catalog. This is the service catalog product version.
+   
+
+  SourceOrganizationUnit:
+    Type: String
+    Description: ID of the root organization unit
+    
+  
 Resources:
-  TagInstance:
+  ControlTower:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: TagInstanceOwner
+      FunctionName: ControlTower-ConfigChecker
       Handler: lambda_function.lambda_handler
       Role: !GetAtt LambdaFunctionRole.Arn
       Code:
@@ -18,6 +43,12 @@ Resources:
         S3Key: !Ref S3Key
       Runtime: python3.7
       Timeout: 300
+      Environment:
+        Variables:
+          ORGANIZATION_UNIT: !Ref OrganizationUnit
+          PRODUCT_ID: !Ref ProductID
+          PROVISIONING_ARTIFACT_ID: !Ref ProvisioningArtifactID
+          SOURCE_ORGANIZATION_UNIT: !Ref SourceOrganizationUnit
   LambdaFunctionRole:
     Type: AWS::IAM::Role
     Properties:
@@ -58,21 +89,23 @@ Resources:
       Description: "EventRule"
       EventPattern: 
         source: 
-          - "aws.ec2"
+          - "aws.organizations"
         detail-type: 
           - "AWS API Call via CloudTrail"
         detail: 
+          eventSource: 
+            - "organizations.amazonaws.com"
           eventName:
-            - "RunInstances"
+            - "AcceptHandshake"
       State: "ENABLED"
       Targets: 
-        - Arn: !GetAtt TagInstance.Arn
+        - Arn: !GetAtt ControlTower.Arn
           Id: TargetFunctionV1
   PermissionForEventsToInvokeLambda: 
     Type: AWS::Lambda::Permission
     Properties: 
       FunctionName: 
-        Ref: TagInstance
+        Ref: ControlTower
       Action: "lambda:InvokeFunction"
       Principal: "events.amazonaws.com"
       SourceArn: !GetAtt EventRule.Arn
