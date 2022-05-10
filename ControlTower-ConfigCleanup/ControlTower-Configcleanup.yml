@@ -82,6 +82,10 @@ Resources:
               - organizations:MoveAccount
               - servicecatalog:ProvisionProduct
             Resource: '*'
+          - Effect: Allow
+            Action: 
+              - sts:AssumeRole
+            Resource: 'arn:aws:iam::*:role/AWSControlTowerExecution'
 
   EventRule: 
     Type: AWS::Events::Rule
