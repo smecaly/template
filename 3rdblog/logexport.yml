@@ -1,0 +1,148 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Parameters:
+  logbucket:
+    Type: String
+    Default: 'catchupbucket'
+  logbucketprefix:
+    Type: String
+    Default: 'logs'
+  logbucketregion:
+    Type: String
+    Default: 'us-east-1'
+  S3Bucket:
+    Type: String
+    Default: 'catchupbucket'
+  S3Key:
+    Type: String
+    Default: 'indexe.zip'
+Resources:
+  Logexport:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: Logexports3
+      Handler: "index.handler"
+      Role: !GetAtt LambdaFunctionRole.Arn
+      Code:
+        S3Bucket: !Ref S3Bucket
+        S3Key: !Ref S3Key
+      Runtime: "nodejs12.x"
+      Timeout: 300
+  LambdaFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+              - lambda.amazonaws.com
+          Action:
+            - sts:AssumeRole
+      Path: "/"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+      Policies:
+      - PolicyName: lambda
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action: 
+              - logs:DescribeLogGroups
+              - logs:DescribeLogStreams
+              - logs:PutRetentionPolicy
+              - logs:CreateLogStream
+              - logs:CreateLogGroup
+              - logs:PutLogEvents
+              - logs:CreateExportTask
+              - logs:DescribeExportTasks
+              - s3:PutBucketPolicy
+              - s3:CreateBucket
+              - s3:ListBucket
+              - s3:ListAllMyBuckets
+            Resource: '*'
+  eventRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+              - events.amazonaws.com
+          Action:
+            - sts:AssumeRole
+      Path: "/"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/AWSStepFunctionsReadOnlyAccess"
+      Policies:
+      - PolicyName: stepfunction
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action: 
+              - states:StartExecution
+              - states:StopExecution
+              - states:StartSyncExecution
+            Resource: '*'
+  StepFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+              - states.amazonaws.com
+          Action:
+            - sts:AssumeRole
+      Path: "/"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaRole"
+  StateMachine:
+    Type: AWS::StepFunctions::StateMachine
+    Properties:
+      StateMachineName: StateMachine
+      DefinitionString: |-
+        {
+          "StartAt": "CreateExportTask",
+          "States": {
+            "CreateExportTask": {
+              "Type": "Task",
+              "Resource": "arn:aws:lambda:us-east-1:186433656069:function:Logexports3",
+              "Next": "IsAllLogsExported"
+            },
+            "IsAllLogsExported": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                    "Variable": "$.continue",
+                    "BooleanEquals": true,
+                    "Next": "CreateExportTask"
+                }
+              ],
+              "Default": "SuccessState"
+            },
+            "SuccessState": {
+              "Type": "Succeed"
+            }
+          }
+        }
+      RoleArn: !GetAtt StepFunctionRole.Arn
+
+  EventRule: 
+    Type: AWS::Events::Rule
+    Properties: 
+      Description: "EventRule"
+      ScheduleExpression: "rate(10 minutes)"
+      State: "ENABLED"
+      Targets: 
+        - Arn: !GetAtt StateMachine.Arn
+          Id: TargetStepFunctionV1
+          RoleArn: !GetAtt eventRole.Arn
+          Input: '{ "logFolderName": "logs","region": "us-east-1" ,"s3BucketName": "catchupbucket"}'
+          
