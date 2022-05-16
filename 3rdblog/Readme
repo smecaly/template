@@ -1,1 +1,5 @@
+Exporting of AWS CloudWatch logs to S3 using Automation
 
+We need to set retention for managing the cost for CloudWatch log storage, when we set that retention to a certain time period then CloudWatch logs will be automatically deleted after that time period. Some times we might need those logs for other debugging/analysis purpose, but we might not be accessing them very frequently so we can move them to more cost effective storage like S3 and keep them for some more time before permanently deleting. This way we can reduce the cost of storing logs for long term without losing flexibility of debugging live issues directly from CloudWatch Logs console.
+
+Use the zip file and put it in s3 bucket and deploy the template.
