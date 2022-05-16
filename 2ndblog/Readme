@@ -1,1 +1,10 @@
 
+Amazon CloudWatch logs lets you monitor, store and access your log files from Amazon EC2 instances, AWS CloudTrail, Lambda functions, VPC flow logs, or other resources.
+
+CloudWatch logs provides several features such as searching by keywords, patterns and date ranges etc and cloudWatch logs is classified as “hot storage” as we would be using it for debugging live issues. Hence it provides lot of the features.
+
+What is accomplished by this automation?
+When a new CloudWatch log group is created, this will set a desirable retention time for that log group. After that retention time all log stream(s) data of log group will be deleted automatically.
+
+How this automation works?
+When a new CloudWatch log group is created, a CloudWatch event rule triggers a lambda function. Then the lambda function sets a desirable retention time for the CloudWatch log group.
