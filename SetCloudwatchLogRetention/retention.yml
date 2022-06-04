@@ -1,74 +1,100 @@
-AWSTemplateFormatVersion: '2010-09-09'
-Parameters:
-  S3Bucket:
+--- 
+AWSTemplateFormatVersion: "2010-09-09"
+Parameters: 
+  Retention: 
+    Default: "14"
     Type: String
-    Default: ''
-  S3Key:
-    Type: String
-    Default: ''
-Resources:
-  LogRetention:
-    Type: AWS::Lambda::Function
-    Properties:
-      FunctionName: LogRetention
-      Handler: "index.handler"
-      Role: !GetAtt LambdaFunctionRole.Arn
-      Code:
-        S3Bucket: !Ref S3Bucket
-        S3Key: !Ref S3Key
-      Runtime: "nodejs12.x"
-      Timeout: 300
-  LambdaFunctionRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-        - Effect: Allow
-          Principal:
-            Service:
-              - lambda.amazonaws.com
-          Action:
-            - sts:AssumeRole
-      Path: "/"
-      ManagedPolicyArns:
-        - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
-      Policies:
-      - PolicyName: lambda
-        PolicyDocument:
-          Version: '2012-10-17'
-          Statement:
-          - Effect: Allow
-            Action: 
-              - logs:DescribeLogGroups
-              - logs:DescribeLogStreams
-              - logs:PutRetentionPolicy
-              - logs:CreateLogStream
-              - logs:CreateLogGroup
-              - logs:PutLogEvents
-            Resource: '*'
-
+Resources: 
   EventRule: 
-    Type: AWS::Events::Rule
     Properties: 
-      Description: "EventRule"
+      Description: EventRule
       EventPattern: 
-        source: 
-          - "aws.logs"
+        detail: 
+          eventName: 
+            - CreateLogGroup
         detail-type: 
           - "AWS API Call via CloudTrail"
-        detail: 
-          eventName:
-            - "CreateLogGroup"
-      State: "ENABLED"
+        source: 
+          - aws.logs
+      State: ENABLED
       Targets: 
-        - Arn: !GetAtt LogRetention.Arn
+        - 
+          Arn: !GetAtt LogRetention.Arn
           Id: TargetFunctionV1
-  PermissionForEventsToInvokeLambda: 
-    Type: AWS::Lambda::Permission
+    Type: "AWS::Events::Rule"
+  LambdaFunctionRole: 
     Properties: 
+      RoleName: "LambdaRetentitonRole"
+      AssumeRolePolicyDocument: 
+        Statement: 
+          - 
+            Action: 
+              - "sts:AssumeRole"
+            Effect: Allow
+            Principal: 
+              Service: 
+                - lambda.amazonaws.com
+        Version: "2012-10-17"
+      ManagedPolicyArns: 
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+      Path: /
+      Policies: 
+        - 
+          PolicyDocument: 
+            Statement: 
+              - 
+                Action: 
+                  - "logs:DescribeLogGroups"
+                  - "logs:DescribeLogStreams"
+                  - "logs:PutRetentionPolicy"
+                  - "logs:CreateLogStream"
+                  - "logs:CreateLogGroup"
+                  - "logs:PutLogEvents"
+                Effect: Allow
+                Resource: "*"
+            Version: "2012-10-17"
+          PolicyName: lambda
+    Type: "AWS::IAM::Role"
+  LogRetention: 
+    Properties: 
+      Code: 
+        ZipFile: |
+            const AWS = require('aws-sdk');
+            const cloudwatchLogs = new AWS.CloudWatchLogs();
+            function setRetentionOfCloudwatchLogGroup(logGroupName, duration) {
+                let params = {
+                    logGroupName : logGroupName,
+                    retentionInDays: duration
+                };
+                return cloudwatchLogs.putRetentionPolicy(params).promise();
+            }
+            exports.handler = async (event) => {
+                const logGroupName = event.logGroupName ? event.logGroupName : event.detail.requestParameters.logGroupName;
+                const retention = process.env.Retention;
+                try {
+                    await setRetentionOfCloudwatchLogGroup(logGroupName, retention);
+                    console.log('Retention has been set to ' + logGroupName + 'for the user given days');
+                    return;
+                } catch(error) {
+                    console.error(error);
+                    throw error;
+                }
+            };
+      Environment: 
+        Variables: 
+          Retention: !Ref Retention
+      FunctionName: LogRetention
+      Handler: index.handler
+      Role: !GetAtt LambdaFunctionRole.Arn
+      Runtime: nodejs12.x
+      Timeout: 300
+    Type: "AWS::Lambda::Function"
+    DependsOn: LambdaFunctionRole
+  PermissionForEventsToInvokeLambda: 
+    Properties: 
+      Action: "lambda:InvokeFunction"
       FunctionName: 
         Ref: LogRetention
-      Action: "lambda:InvokeFunction"
-      Principal: "events.amazonaws.com"
+      Principal: events.amazonaws.com
       SourceArn: !GetAtt EventRule.Arn
+    Type: "AWS::Lambda::Permission"
