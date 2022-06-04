@@ -156,4 +156,21 @@ Resources:
           Id: TargetStepFunctionV1
           RoleArn: !GetAtt EventBridgeRole.Arn
           Input: !Ref EventBridgeInputs
-
+  BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref logbucketName
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Action:
+              - 's3:*'
+            Effect: Allow
+            Resource: !Join
+              - ''
+              - - 'arn:aws:s3:::'
+                - !Ref logbucketName
+                - /*
+            Principal:
+              AWS:
+                - !GetAtt LambdaFunctionRole.Arn
