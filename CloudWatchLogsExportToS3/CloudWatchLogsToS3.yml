@@ -164,7 +164,17 @@ Resources:
         Version: 2012-10-17
         Statement:
           - Action:
-              - 's3:*'
+              - 's3:GetBucketAcl'
+            Effect: Allow
+            Resource: !Join
+              - ''
+              - - 'arn:aws:s3:::'
+                - !Ref logbucketName
+            Principal:
+              Service:
+                - "logs.us-east-1.amazonaws.com"
+          - Action:
+              - 's3:PutObject'
             Effect: Allow
             Resource: !Join
               - ''
@@ -172,5 +182,9 @@ Resources:
                 - !Ref logbucketName
                 - /*
             Principal:
-              AWS:
-                - !GetAtt LambdaFunctionRole.Arn
+              Service:
+                - "logs.us-east-1.amazonaws.com"
+            Condition:
+              StringEquals: 
+                's3:x-amz-acl': 
+                - 'bucket-owner-full-control'
